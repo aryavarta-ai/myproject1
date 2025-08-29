@@ -9,12 +9,13 @@ def load_salary_scales(filepath="salary_scale.xlsx"):
     ws = wb.active
     scales = []
     for row in ws.iter_rows(min_row=2, values_only=True):  # skip header
-        if row[0] is None:
+        # skip if row is empty or shorter than 3 columns
+        if not row or len(row) < 3 or row[0] is None or row[1] is None or row[2] is None:
             continue
         scale = {
-            "start": row[0],     # e.g., 29600
-            "increment": row[1], # e.g., 725
-            "end": row[2]        # e.g., 32500
+            "start": int(row[0]),
+            "increment": int(row[1]),
+            "end": int(row[2])
         }
         scales.append(scale)
     return scales
@@ -138,3 +139,4 @@ def process_form():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
