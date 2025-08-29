@@ -1,9 +1,7 @@
-# app.py
 from flask import Flask, request, render_template
 from openpyxl import load_workbook
 from datetime import datetime
-import os, math
-from jinja2 import Template
+import math
 
 app = Flask(__name__)
 
@@ -31,6 +29,7 @@ REBATE_87A = 75000
 
 # ---------------- Helpers ----------------
 def parse_scale(scale_str):
+    """Parse scale like 29600-725-32500-800-35700-900"""
     parts = scale_str.split('-')
     numbers = [float(p) for p in parts]
     if len(numbers) < 3 or len(numbers) % 2 == 0:
@@ -82,7 +81,6 @@ def compute_income_tax_new_regime(annual_gross):
         if taxable_slice > 0:
             tax += taxable_slice * pct
 
-    # ✅ Apply rebate only if taxable income <= 12,75,000
     rebate = 0.0
     if taxable <= 1275000:
         rebate = min(REBATE_87A, tax)
@@ -90,6 +88,7 @@ def compute_income_tax_new_regime(annual_gross):
     tax_after_rebate = max(0, tax - rebate)
     cess = tax_after_rebate * 0.04
     return {
+        "std_deduction": STANDARD_DEDUCTION,
         "taxable_income": taxable,
         "tax_before_rebate": tax,
         "rebate_applied": rebate,
@@ -171,15 +170,11 @@ def process_salary_form(data):
         "annual_gross_with_all":annual_gross_with_all,"tax_summary":tax_summary
     }
 
-# ---------------- Report (same as your original) ----------------
-# keeping your FORM16_TEMPLATE exactly same
-from jinja2 import Template
-return render_template("report.html", **result) # keep your original template here
-
+# ---------------- Flask Routes ----------------
 @app.route("/calculate_salary",methods=["POST"])
 def calculate_salary_route():
     result=process_salary_form(request.form)
-    return Template(FORM16_TEMPLATE).render(**result)
+    return render_template("report.html", **result)
 
 @app.route("/")
 def index():
@@ -187,4 +182,3 @@ def index():
 
 if __name__=="__main__":
     app.run(debug=True,port=5000)
-
