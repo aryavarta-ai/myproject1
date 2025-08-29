@@ -3,7 +3,7 @@ from openpyxl import load_workbook
 
 app = Flask(__name__)
 
-# Load salary scales into memory
+# Load salary scales from Excel
 def load_salary_scales(filepath="salary_scale.xlsx"):
     wb = load_workbook(filepath, data_only=True)
     ws = wb.active
@@ -31,11 +31,11 @@ def get_next_increment(basic):
             return next_basic
     return basic  # no change if not found
 
-# Core salary calculation (simplified)
+# Core salary + tax calculation
 def calculate_salary(basic_salary, increment_month, allowance, el_encashment_amount):
     monthly_rows = []
     current_basic = basic_salary
-    da_rate = 0.1475  # example DA
+    da_rate = 0.1475  # 14.75% DA
 
     for month in range(1, 13):
         # Apply increment in chosen month
@@ -58,11 +58,11 @@ def calculate_salary(basic_salary, increment_month, allowance, el_encashment_amo
             "Gross": gross
         })
 
-    # Annual calculations
+    # Annual income
     annual_gross = sum([row["Gross"] for row in monthly_rows])
     total_income = annual_gross + allowance + el_encashment_amount
 
-    # Tax calculation (new regime FY 2025-26)
+    # Tax (New Regime 2025-26)
     std_deduction = 75000
     taxable_income = max(0, total_income - std_deduction)
 
@@ -101,7 +101,8 @@ def calculate_salary(basic_salary, increment_month, allowance, el_encashment_amo
 
     return monthly_rows, annual_gross, total_income, tax_summary
 
-# Flask routes
+
+# Routes
 @app.route("/")
 def index():
     return render_template("form.html")
