@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Form 16 Report</title>
+<style>
+  body { font-family: Arial, sans-serif; margin:20px; background:#f9f9f9; }
+  h2,h3 { text-align:center; }
+  table { width:100%; border-collapse: collapse; margin:20px 0; }
+  th, td { border:1px solid #333; padding:6px 10px; text-align:right; }
+  th { background:#ddd; }
+  tr:nth-child(even) { background:#f2f2f2; }
+  .highlight { background: #ffffcc; font-weight: bold; }
+  .rebate { background:#d4edda; }
+  .note { font-size:12px; color:#666; margin-top:20px; }
+  .disclaimer { font-size:10px; color:red; text-align:center; margin-top:20px; }
+  .qr { position:fixed; right:20px; bottom:20px; }
+</style>
+</head>
+<body>
+
+<h2>Form 16 - Salary & Tax Report</h2>
+<h3>{{ name }} ({{ designation }})</h3>
+<p>KGID: {{ kgid }} | PAN: {{ pan }} | Group: {{ group }} | City Grade: {{ city_grade }}</p>
+
+<h3>Month-wise Salary Details</h3>
+<table>
+  <tr>
+    <th>Month</th><th>Basic</th><th>DA</th><th>HRA</th><th>CCA</th><th>Medical</th><th>Gross</th>
+  </tr>
+  {% for r in monthly_rows %}
+  <tr>
+    <td style="text-align:left">{{ r.Month }}</td>
+    <td>{{ "{:,.0f}".format(r.Basic) }}</td>
+    <td>{{ "{:,.0f}".format(r.DA) }}</td>
+    <td>{{ "{:,.0f}".format(r.HRA) }}</td>
+    <td>{{ "{:,.0f}".format(r.CCA) }}</td>
+    <td>{{ "{:,.0f}".format(r.Medical) }}</td>
+    <td>{{ "{:,.0f}".format(r.Gross) }}</td>
+  </tr>
+  {% endfor %}
+  <tr class="highlight">
+    <td style="text-align:left">Total</td>
+    <td>{{ "{:,.0f}".format(annual_basic) }}</td>
+    <td>{{ "{:,.0f}".format(annual_da) }}</td>
+    <td>{{ "{:,.0f}".format(annual_hra) }}</td>
+    <td>{{ "{:,.0f}".format(annual_cca) }}</td>
+    <td>{{ "{:,.0f}".format(annual_medical) }}</td>
+    <td>{{ "{:,.0f}".format(annual_gross) }}</td>
+  </tr>
+</table>
+
+<h3>Annual Summary</h3>
+<table>
+  <tr><td style="text-align:left">Annual Gross Salary</td><td>{{ "{:,.0f}".format(annual_gross) }}</td></tr>
+  <tr><td style="text-align:left">EL Encashment (Dec)</td><td>{{ "{:,.0f}".format(el_encashment_amount) }}</td></tr>
+  <tr><td style="text-align:left">Allowance</td><td>{{ "{:,.0f}".format(allowance) }}</td></tr>
+  <tr class="highlight"><td style="text-align:left">Total Income (before Std Deduction)</td>
+      <td>{{ "{:,.0f}".format(annual_gross_with_all) }}</td></tr>
+</table>
+
+<h3>Tax Calculation (New Regime FY 2025-26)</h3>
+<table>
+  <tr><td style="text-align:left">Standard Deduction</td><td>{{ "{:,.0f}".format(75000) }}</td></tr>
+  <tr><td style="text-align:left">Taxable Income</td><td>{{ "{:,.0f}".format(tax_summary.taxable_income) }}</td></tr>
+  <tr><td style="text-align:left">Tax Before Rebate</td><td>{{ "{:,.0f}".format(tax_summary.tax_before_rebate) }}</td></tr>
+  <tr {% if tax_summary.rebate_applied > 0 %}class="rebate"{% endif %}>
+      <td style="text-align:left">Rebate u/s 87A</td><td>{{ "{:,.0f}".format(tax_summary.rebate_applied) }}</td></tr>
+  <tr><td style="text-align:left">Tax After Rebate</td><td>{{ "{:,.0f}".format(tax_summary.tax_after_rebate) }}</td></tr>
+  <tr><td style="text-align:left">Health & Education Cess (4%)</td><td>{{ "{:,.0f}".format(tax_summary.cess) }}</td></tr>
+  <tr class="highlight"><td style="text-align:left">Total Tax Liability</td><td>{{ "{:,.0f}".format(tax_summary.total_tax_liability) }}</td></tr>
+</table>
+
+<div class="note">
+  <p><b>Relevant Clauses (Income Tax Act, 1961):</b></p>
+  <ul>
+    <li>Standard Deduction: ₹75,000 for salaried employees (Sec 16(ia)).</li>
+    <li>Rebate u/s 87A available if total income ≤ ₹12,75,000.</li>
+    <li>Tax computed under New Regime (Sec 115BAC).</li>
+  </ul>
+  <p><b>New Slabs FY 2025-26:</b></p>
+  <table>
+    <tr><th>Slab</th><th>Rate</th></tr>
+    <tr><td>0 - 4,00,000</td><td>Nil</td></tr>
+    <tr><td>4,00,001 - 8,00,000</td><td>5%</td></tr>
+    <tr><td>8,00,001 - 12,00,000</td><td>10%</td></tr>
+    <tr><td>12,00,001 - 16,00,000</td><td>15%</td></tr>
+    <tr><td>16,00,001 - 20,00,000</td><td>20%</td></tr>
+    <tr><td>20,00,001 - 24,00,000</td><td>25%</td></tr>
+    <tr><td>Above 24,00,000</td><td>30%</td></tr>
+  </table>
+</div>
+
+<div class="disclaimer">
+  This tax calculation is based on the input provided by the user and may not depict actual liability.  
+  Consult a professional or the Income Tax Department for official assessment.
+</div>
+
+<div class="qr">
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=9591362525@upi&pn=TaxPayment&am=500&cu=INR" alt="Pay ₹500">
+</div>
+
+</body>
+</html>
