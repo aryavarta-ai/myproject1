@@ -1,193 +1,137 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tax Calculation - FY 2025-26 AY 2026-27</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f2f6fc;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-    .container {
-      background: #fff;
-      padding: 25px 40px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      max-width: 550px;
-      width: 100%;
-    }
-    h2 {
-      text-align: center;
-      margin-bottom: 10px;
-      color: #2c3e50;
-    }
-    h3 {
-      text-align: center;
-      margin: 5px 0 20px;
-      color: #16a085;
-      font-size: 16px;
-      font-weight: bold;
-    }
-    label {
-      display: block;
-      margin: 12px 0 6px;
-      font-weight: bold;
-    }
-    input, select, textarea {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 14px;
-    }
-    textarea {
-      resize: vertical;
-      min-height: 60px;
-    }
-    button {
-      margin-top: 20px;
-      width: 100%;
-      padding: 12px;
-      background: #3498db;
-      border: none;
-      border-radius: 8px;
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #2980b9;
-    }
-    .hidden {
-      display: none;
-    }
-  </style>
+<meta charset="utf-8">
+<title>Salary Form - Form 16 Generator</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background:#f8f9fa;
+  margin:0; padding:0;
+}
+.container {
+  max-width: 600px;
+  margin:40px auto;
+  background:white;
+  padding:20px 30px;
+  border-radius:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+h2 {
+  text-align:center;
+  margin-bottom:20px;
+}
+label {
+  font-weight:bold;
+  display:block;
+  margin-top:12px;
+}
+input, select {
+  width:100%;
+  padding:8px;
+  margin-top:5px;
+  border:1px solid #ccc;
+  border-radius:6px;
+  font-size:14px;
+}
+input:invalid {
+  border-color: red;
+}
+button {
+  margin-top:20px;
+  padding:10px 18px;
+  border:none;
+  border-radius:6px;
+  font-size:16px;
+  cursor:pointer;
+  background:#3498db;
+  color:white;
+  width:100%;
+}
+button:hover {
+  background:#2980b9;
+}
+.error-msg {
+  color:red;
+  font-size:12px;
+  display:none;
+}
+</style>
 </head>
 <body>
-  <div class="container">
-    <h2>WELCOME TO TAX CALCULATION<br>FY 2025-26 | AY 2026-27</h2>
-    <h3>Tax calculation will be in New Regime and as per new Slabs with INR 75000/- standard deduction for salaried employees </h3>
 
-    <form action="/calculate_salary" method="POST">
-      <!-- KGID -->
-      <label for="kgid">Enter KGID No:</label>
-      <input type="text" id="kgid" name="kgid" placeholder="Enter KGID Number" required>
+<div class="container">
+  <h2>Form 16 Generator (FY 2025-26)</h2>
+  <form id="salaryForm" method="post" action="/calculate_salary">
 
-      <!-- Name -->
-      <label for="name">Enter Name:</label>
-      <input type="text" id="name" name="name" required>
+    <label for="name">Name</label>
+    <input type="text" id="name" name="name" required>
 
-      <!-- PAN No -->
-      <label for="pan">Enter PAN No:</label>
-      <input type="text" id="pan" name="pan" maxlength="10" placeholder="ABCDE1234F" style="text-transform:uppercase;" required>
+    <label for="kgid">KGID No</label>
+    <input type="text" id="kgid" name="kgid">
 
-      <!-- Phone Number -->
-      <label for="phone">Enter Phone Number:</label>
-      <input type="tel" id="phone" name="phone" placeholder="Enter 10-digit mobile number" pattern="[0-9]{10}" maxlength="10" required>
+    <label for="pan">PAN</label>
+    <input type="text" id="pan" name="pan" required 
+           pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}" 
+           title="PAN must be 10 characters: 5 uppercase letters, 4 digits, 1 uppercase letter">
 
-      <!-- School/Office Address -->
-      <label for="address">Enter School/Office Address:</label>
-      <textarea id="address" name="address" placeholder="Enter full address"></textarea>
+    <label for="designation">Designation</label>
+    <input type="text" id="designation" name="designation">
 
-      <!-- Basic Salary -->
-      <label for="salary">Enter Basic Salary (as on March 2025):</label>
-      <input type="number" id="salary" name="basic_salary" placeholder="Enter amount in INR" required>
+    <label for="group">Group</label>
+    <input type="text" id="group" name="group">
 
-      <!-- City Grade -->
-      <label for="citygrade">Enter City Grade:</label>
-      <select id="citygrade" name="city_grade" required>
-        <option value="">--Select City Grade--</option>
-        <option value="A">A</option>
-        <option value="B">B</option>
-        <option value="C">C</option>                  
-      </select>
+    <label for="basic_salary">Basic Salary</label>
+    <input type="number" id="basic_salary" name="basic_salary" required min="0">
 
-      <!-- Designation -->
-      <label for="designation">Enter Designation:</label>
-      <input type="text" id="designation" name="designation" required>
+    <label for="increment_month">Increment Month</label>
+    <select id="increment_month" name="increment_month" required>
+      <option value="1">January</option>
+      <option value="2">February</option>
+      <option value="3">March</option>
+      <option value="4">April</option>
+      <option value="5">May</option>
+      <option value="6">June</option>
+      <option value="7">July</option>
+      <option value="8">August</option>
+      <option value="9">September</option>
+      <option value="10">October</option>
+      <option value="11">November</option>
+      <option value="12">December</option>
+    </select>
 
-      <!-- Group Dropdown (NOT compulsory) -->
-      <label for="group">Enter Group:</label>
-      <select id="group" name="group">
-        <option value="">--Select Group--</option>
-        <option value="A">Group A</option>
-        <option value="B">Group B</option>
-        <option value="C">Group C</option>
-        <option value="D">Group D</option>
-      </select>
+    <label for="allowance">Other Allowance</label>
+    <input type="number" id="allowance" name="allowance" value="0" min="0">
 
-      <!-- Increment Month Dropdown -->
-      <label for="increment">Enter Increment Month:</label>
-      <select id="increment" name="increment" required>
-        <option value="">--Select Month--</option>
-        <option value="JAN-2026">JAN-2026</option>
-        <option value="JULY-2025">JUL-2025</option>
-      </select>
+    <label for="el_encashment_amount">EL Encashment</label>
+    <input type="number" id="el_encashment_amount" name="el_encashment_amount" value="0" min="0">
 
-      <!-- Time Bond Increment Dropdown (NOT compulsory) -->
-      <label for="timebond">Enter Time-Bond Increment (if any):</label>
-      <select id="timebond" name="timebond" onchange="toggleMonthDropdown()">
-        <option value="">--Select Years--</option>
-        <option value="10">10 Years</option>
-        <option value="15">15 Years</option>
-        <option value="20">20 Years</option>
-        <option value="25">25 Years</option>
-        <option value="30">30 Years</option>
-      </select>
+    <button type="submit">Generate Report</button>
+  </form>
+</div>
 
-      <!-- Applicable Month (only required if timebond chosen) -->
-      <div id="timebond-month-container" class="hidden">
-        <label for="timebondmonth">From which month time bond increment is applicable:</label>
-        <select id="timebondmonth" name="timebondmonth">
-          <option value="">--Select Month--</option>
-          <option value="MAR-2025">March 2025</option>
-          <option value="APR-2025">April 2025</option>
-          <option value="MAY-2025">May 2025</option>
-          <option value="JUN-2025">June 2025</option>
-          <option value="JUL-2025">July 2025</option>
-          <option value="AUG-2025">August 2025</option>
-          <option value="SEP-2025">September 2025</option>
-          <option value="OCT-2025">October 2025</option>
-          <option value="NOV-2025">November 2025</option>
-          <option value="DEC-2025">December 2025</option>
-          <option value="JAN-2026">January 2026</option>
-          <option value="FEB-2026">February 2026</option>
-        </select>
-      </div>
-	  <label for="leave_encashment">Leave Encashment Taken?</label>
-<select id="leave_encashment" name="leave_encashment" required>
-  
-  <option value="">--Select Option--</option>
-  <option value="YES">YES</option>
-  <option value="NO">NO</option>
-</select>
-<label for="other_allowance">Enter any other allowance here(SFN, charge allowance,spacial pay or arrears if any,  Enter one year Gross amount not for a single Month </label>
-      <input type="number" id="other_allowance" name="allowance" placeholder="Enter gross amount in INR" required>
+<script>
+// Extra JS validation for PAN & non-negative values
+document.getElementById("salaryForm").addEventListener("submit", function(event) {
+  const pan = document.getElementById("pan").value.trim();
+  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+  if (!panRegex.test(pan)) {
+    alert("Invalid PAN format. Example: ABCDE1234F");
+    event.preventDefault();
+    return false;
+  }
 
-      <!-- Submit -->
-      <button type="submit">Submit</button>
-    </form>
-  </div>
-
-  <script>
-    function toggleMonthDropdown() {
-      const timebond = document.getElementById("timebond").value;
-      const monthDropdown = document.getElementById("timebondmonth");
-      const container = document.getElementById("timebond-month-container");
-
-      if (timebond) {
-        container.classList.remove("hidden");
-        monthDropdown.setAttribute("required", "true"); // required only when timebond selected
-      } else {
-        container.classList.add("hidden");
-        monthDropdown.removeAttribute("required");
-      }
+  const fields = ["basic_salary", "allowance", "el_encashment_amount"];
+  for (let id of fields) {
+    let val = document.getElementById(id).value;
+    if (val < 0) {
+      alert("Values cannot be negative!");
+      event.preventDefault();
+      return false;
     }
-  </script>
+  }
+});
+</script>
+
 </body>
 </html>
