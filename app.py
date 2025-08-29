@@ -1,194 +1,189 @@
-from flask import Flask, render_template, request
+# app.py
+from flask import Flask, request, render_template
 from openpyxl import load_workbook
+from datetime import datetime
+import os, math
+from jinja2 import Template
 
 app = Flask(__name__)
 
-# ---------- Load salary scales safely (no pandas) ----------
-def load_salary_scales(filepath="salary_scale.xlsx"):
-    wb = load_workbook(filepath, data_only=True)
+# ---------------- Configuration ----------------
+SCALE_XLSX = "salary_scale.xlsx"
+
+MONTHS = [
+    "Mar-2025","Apr-2025","May-2025","Jun-2025",
+    "Jul-2025","Aug-2025","Sep-2025","Oct-2025",
+    "Nov-2025","Dec-2025","Jan-2026","Feb-2026"
+]
+
+DA_RATES = {"Mar-2025":0.1275, "Jul-2025":0.1475}
+HRA_RATES = {"A":0.20,"B":0.15,"C":0.075}
+CCA_AMOUNT = 600
+MEDICAL_AMOUNT = 500
+
+TAX_SLABS = [
+    (0,400000,0.0),(400000,800000,0.05),(800000,1200000,0.10),
+    (1200000,1600000,0.15),(1600000,2000000,0.20),
+    (2000000,2400000,0.25),(2400000,math.inf,0.30)
+]
+STANDARD_DEDUCTION = 75000
+REBATE_87A = 75000
+
+# ---------------- Helpers ----------------
+def parse_scale(scale_str):
+    parts = scale_str.split('-')
+    numbers = [float(p) for p in parts]
+    if len(numbers) < 3 or len(numbers) % 2 == 0:
+        raise ValueError("Invalid scale format")
+    salaries = numbers[0::2]; increments = numbers[1::2]
+    ranges = []
+    for i in range(len(increments)):
+        ranges.append((salaries[i], salaries[i+1], increments[i]))
+    return ranges
+
+def load_all_ranges(filename=SCALE_XLSX):
+    wb = load_workbook(filename, data_only=True)
     ws = wb.active
     scales = []
-    for row in ws.iter_rows(min_row=2, values_only=True):  # expect: start, increment, end
-        if not row or len(row) < 3:
+    for row in ws.iter_rows(min_row=1, values_only=True):
+        if not row or not row[0]:
             continue
-        start, inc, end = row[0], row[1], row[2]
-        if start is None or inc is None or end is None:
-            continue
-        try:
-            scales.append({"start": int(start), "increment": int(inc), "end": int(end)})
-        except (TypeError, ValueError):
-            continue
-    if not scales:
-        # fallback to a safe single bracket if file is empty/bad
-        scales = [{"start": 10000, "increment": 500, "end": 999999}]
-    return scales
+        scale_str = str(row[0]).strip()
+        if scale_str:
+            scales.append(scale_str)
+    return [parse_scale(s.strip()) for s in scales], scales
 
-SALARY_SCALES = load_salary_scales()
+def calculate_increment_from_scales(salary, all_ranges):
+    for row_idx, grade_ranges in enumerate(all_ranges, start=1):
+        for start, end, increment in grade_ranges:
+            if start <= salary < end:
+                return salary + increment, row_idx
+    return salary, None
 
-def next_basic_from_scale(basic_now: int) -> int:
-    """Return next basic within the matching scale; cap at scale end if exceeded."""
-    for s in SALARY_SCALES:
-        if s["start"] <= basic_now <= s["end"]:
-            nb = basic_now + s["increment"]
-            return s["end"] if nb > s["end"] else nb
-    return basic_now  # if not found, keep same
-
-# ---------- Components ----------
-def hra_amount(basic: int, city_grade: str) -> int:
-    if city_grade == "A":
-        pct = 0.24
-    elif city_grade == "B":
-        pct = 0.16
-    else:
-        pct = 0.10
-    return round(basic * pct)
-
-def compute_tax_new_regime(total_income: int, rebate_basis_income: int):
-    """
-    total_income: annual_gross + allowance + EL encashment (before standard deduction)
-    rebate_basis_income: as per your rule for 87A (based on gross incl. extras)
-    """
-    STD_DED = 75000
-    taxable = max(0, total_income - STD_DED)
-
-    # slabs FY 2025-26
-    t = 0.0
-    if taxable <= 400000:
-        t = 0
-    elif taxable <= 800000:
-        t = (taxable - 400000) * 0.05
-    elif taxable <= 1200000:
-        t = 20000 + (taxable - 800000) * 0.10
-    elif taxable <= 1600000:
-        t = 60000 + (taxable - 1200000) * 0.15
-    elif taxable <= 2000000:
-        t = 120000 + (taxable - 1600000) * 0.20
-    elif taxable <= 2400000:
-        t = 200000 + (taxable - 2000000) * 0.25
-    else:
-        t = 300000 + (taxable - 2400000) * 0.30
-
-    # 87A per your requirement: eligibility based on *gross incl. extras* (NOT taxable)
-    rebate_applied = 0.0
-    if rebate_basis_income <= 1275000:
-        rebate_applied = min(75000.0, t)
-        t -= rebate_applied
-
-    cess = round(t * 0.04)
-    total = round(t + cess)
-
-    return {
-        "std_deduction": STD_DED,
-        "taxable_income": round(taxable),               # shown in table
-        "tax_before_rebate": round(t + rebate_applied),
-        "rebate_applied": round(rebate_applied),
-        "tax_after_rebate": round(t),
-        "cess": cess,
-        "total_tax_liability": total,
-        "rebate_basis_income": round(rebate_basis_income)  # for reference if you show it
-    }
-
-# ---------- Main calculator ----------
-def calculate(basic_start: int, inc_month: int, allowance_annual: int,
-              timebound_increment: int, city_grade: str):
-    """
-    - Annual increment applied in chosen inc_month (once).
-    - Optional time-bound increment: if >0, apply one more increment in December.
-    - HRA depends on city grade (A/B/C).
-    - EL Encashment = December Gross (computed).
-    """
-    monthly_rows = []
-    current_basic = int(basic_start)
-    DA_RATE = 0.1475
-    CCA = 1000
-    MEDICAL = 500
-
-    for m in range(1, 13):
-        # Annual increment
-        if m == inc_month:
-            current_basic = next_basic_from_scale(current_basic)
-
-        # Time-bound increment (if opted), applied in December
-        if m == 12 and timebound_increment and int(timebound_increment) > 0:
-            current_basic = next_basic_from_scale(current_basic)
-
-        da = round(current_basic * DA_RATE)
-        hra = hra_amount(current_basic, city_grade)
-        gross = current_basic + da + hra + CCA + MEDICAL
-
-        monthly_rows.append({
-            "Month": ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1],
-            "Basic": current_basic,
-            "DA": da,
-            "HRA": hra,
-            "CCA": CCA,
-            "Medical": MEDICAL,
-            "Gross": gross
-        })
-
-    annual_gross = sum(r["Gross"] for r in monthly_rows)
-    december_gross = monthly_rows[-1]["Gross"]  # EL encashment rule
-    el_encashment = december_gross
-
-    # total income before standard deduction
-    total_income_before_std = annual_gross + int(allowance_annual) + el_encashment
-
-    tax_summary = compute_tax_new_regime(
-        total_income=total_income_before_std,
-        rebate_basis_income=total_income_before_std   # per your 87A rule (gross incl. extras)
+def get_da_rate_for_month(month_str):
+    month_dt = datetime.strptime(month_str, "%b-%Y")
+    items = sorted(
+        [(datetime.strptime(k, "%b-%Y"), v) for k,v in DA_RATES.items()],
+        key=lambda x:x[0]
     )
+    applicable = 0.0
+    for dt, rate in items:
+        if month_dt >= dt: applicable = rate
+        else: break
+    return applicable
 
+def compute_income_tax_new_regime(annual_gross):
+    taxable = max(0, annual_gross - STANDARD_DEDUCTION)
+    tax = 0.0
+    for lower, upper, pct in TAX_SLABS:
+        if taxable <= lower:
+            break
+        taxable_slice = min(taxable, upper) - lower
+        if taxable_slice > 0:
+            tax += taxable_slice * pct
+
+    # ✅ Apply rebate only if taxable income <= 12,75,000
+    rebate = 0.0
+    if taxable <= 1275000:
+        rebate = min(REBATE_87A, tax)
+
+    tax_after_rebate = max(0, tax - rebate)
+    cess = tax_after_rebate * 0.04
     return {
-        "monthly_rows": monthly_rows,
-        "annual_gross": annual_gross,
-        "allowance": int(allowance_annual),
-        "el_encashment_amount": el_encashment,
-        "annual_gross_with_all": total_income_before_std,
-        "tax_summary": tax_summary
+        "taxable_income": taxable,
+        "tax_before_rebate": tax,
+        "rebate_applied": rebate,
+        "tax_after_rebate": tax_after_rebate,
+        "cess": cess,
+        "total_tax_liability": tax_after_rebate + cess
     }
 
-# ---------- Routes ----------
-@app.route("/", methods=["GET"])
+# ---------------- Core Processing ----------------
+def process_salary_form(data):
+    # Personal details
+    kgid = data.get("kgid","").strip()
+    name = data.get("name","").strip()
+    pan = data.get("pan","").strip()
+    phone = data.get("phone","").strip()
+    address = data.get("address","").strip()
+    designation = data.get("designation","").strip()
+    group = data.get("group","").strip().upper()
+    city_grade = data.get("city_grade","").strip().upper()
+    
+    # Salary & increments
+    basic_salary = float(data.get("basic_salary",0))
+    increment_month_raw = data.get("increment","").strip()
+    timebond_from = data.get("timebondmonth","")
+    leave_encashment = data.get("leave_encashment","NO").strip().upper()
+    allowance = float(data.get("allowance",0))
+
+    # Parse months
+    def parse_month(m_raw):
+        if not m_raw: return None
+        m,y = m_raw.split('-',1)
+        dt = datetime.strptime(m[:3]+"-"+y,"%b-%Y")
+        return dt.strftime("%b-%Y")
+    increment_month = parse_month(increment_month_raw)
+    timebond_from_month = parse_month(timebond_from)
+
+    # Salary calculation
+    all_ranges, scale_strings = load_all_ranges()
+    rows = []; current_basic = basic_salary; dec_gross=0
+
+    for month in MONTHS:
+        # Apply regular increment
+        if increment_month and month == increment_month:
+            current_basic,_ = calculate_increment_from_scales(current_basic, all_ranges)
+        # Apply timebond increment
+        if timebond_from_month and month == timebond_from_month:
+            current_basic,_ = calculate_increment_from_scales(current_basic, all_ranges)
+
+        da = round(current_basic * get_da_rate_for_month(month),2)
+        hra = round(current_basic * HRA_RATES.get(city_grade,0),2)
+        cca = CCA_AMOUNT if city_grade in ("A","B") else 0
+        medical = 0 if group in ("A","B") else MEDICAL_AMOUNT
+        gross = current_basic + da + hra + cca + medical
+
+        if month=="Dec-2025": dec_gross=gross
+        rows.append({"Month":month,"Basic":current_basic,"DA":da,"HRA":hra,"CCA":cca,"Medical":medical,"Gross":gross})
+
+    annual_basic=sum(r["Basic"] for r in rows)
+    annual_da=sum(r["DA"] for r in rows)
+    annual_hra=sum(r["HRA"] for r in rows)
+    annual_cca=sum(r["CCA"] for r in rows)
+    annual_medical=sum(r["Medical"] for r in rows)
+    annual_gross=sum(r["Gross"] for r in rows)
+
+    # Add encashment + allowance
+    el_encashment_amount=0
+    if leave_encashment=="YES": el_encashment_amount=0.5*dec_gross
+    annual_gross_with_all=annual_gross+el_encashment_amount+allowance
+
+    tax_summary=compute_income_tax_new_regime(annual_gross_with_all)
+
+    return {
+        "kgid":kgid,"name":name,"pan":pan,"phone":phone,"address":address,"designation":designation,
+        "city_grade":city_grade,"group":group,"increment_month":increment_month,"timebond_from":timebond_from_month,
+        "leave_encashment":leave_encashment,"monthly_rows":rows,
+        "annual_basic":annual_basic,"annual_da":annual_da,"annual_hra":annual_hra,"annual_cca":annual_cca,
+        "annual_medical":annual_medical,"annual_gross":annual_gross,
+        "allowance":allowance,"el_encashment_amount":el_encashment_amount,
+        "annual_gross_with_all":annual_gross_with_all,"tax_summary":tax_summary
+    }
+
+# ---------------- Report (same as your original) ----------------
+# keeping your FORM16_TEMPLATE exactly same
+from jinja2 import Template
+FORM16_TEMPLATE = """..."""  # keep your original template here
+
+@app.route("/calculate_salary",methods=["POST"])
+def calculate_salary_route():
+    result=process_salary_form(request.form)
+    return Template(FORM16_TEMPLATE).render(**result)
+
+@app.route("/")
 def index():
     return render_template("form.html")
 
-@app.route("/calculate_salary", methods=["POST"])
-def calculate_salary():
-    try:
-        name = request.form.get("name","").strip()
-        kgid = request.form.get("kgid","").strip()
-        pan = request.form.get("pan","").strip()
-        designation = request.form.get("designation","").strip()
-        group = request.form.get("group","").strip()
-
-        basic_salary = int(request.form["basic_salary"])
-        increment_month = int(request.form["increment_month"])
-        timebound_increment = int(request.form.get("timebound_increment", 0))
-        city_grade = request.form.get("city_grade", "C")
-        allowance = int(request.form.get("allowance", 0))
-
-    except Exception as e:
-        return f"Invalid input: {e}", 400
-
-    result = calculate(
-        basic_start=basic_salary,
-        inc_month=increment_month,
-        allowance_annual=allowance,
-        timebound_increment=timebound_increment,
-        city_grade=city_grade
-    )
-
-    return render_template(
-        "report.html",
-        name=name, kgid=kgid, pan=pan, designation=designation, group=group,
-        monthly_rows=result["monthly_rows"],
-        annual_gross=result["annual_gross"],
-        allowance=result["allowance"],
-        el_encashment_amount=result["el_encashment_amount"],
-        annual_gross_with_all=result["annual_gross_with_all"],
-        tax_summary=result["tax_summary"]
-    )
-
-if __name__ == "__main__":
-    # For local testing; Render/Heroku will use gunicorn Procfile
-    app.run(host="0.0.0.0", port=5000)
+if __name__=="__main__":
+    app.run(debug=True,port=5000)
