@@ -174,7 +174,7 @@ def process_salary_form(data):
 # ---------------- Report (same as your original) ----------------
 # keeping your FORM16_TEMPLATE exactly same
 from jinja2 import Template
-FORM16_TEMPLATE = """..."""  # keep your original template here
+return render_template("report.html", **result) # keep your original template here
 
 @app.route("/calculate_salary",methods=["POST"])
 def calculate_salary_route():
@@ -187,3 +187,4 @@ def index():
 
 if __name__=="__main__":
     app.run(debug=True,port=5000)
+
