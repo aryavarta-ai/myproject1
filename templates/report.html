@@ -14,10 +14,11 @@
   .rebate { background:#d4edda; }
   .note { font-size:12px; color:#666; margin-top:20px; }
   .disclaimer { font-size:10px; color:red; text-align:center; margin-top:20px; }
+  .qr { position:fixed; right:20px; bottom:80px; }
   @media print {
-  .qr { position: absolute; bottom: 20px; right: 20px; }
-}
-  .qr { position:fixed; right:20px; bottom:20px; }
+    .qr { position: absolute; right:20px; bottom:20px; }
+    button { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -96,14 +97,16 @@
 
 <div class="disclaimer">
   This tax calculation is based on the input provided by the user and may not depict actual liability.  
- 
+  Consult a professional or the Income Tax Department for official assessment.
 </div>
 
+<!-- QR Code -->
 <div class="qr">
   <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=9591362525@upi&pn=TaxPayment&am=500&cu=INR"
        alt="Pay ₹500" style="width:120px;height:120px;display:block;" crossorigin="anonymous">
 </div>
 
+<!-- Print & Download Buttons -->
 <div style="text-align:center; margin-top:40px;">
   <button onclick="window.print()">🖨 Print</button>
   <button onclick="downloadPDF()">⬇ Download PDF</button>
@@ -123,7 +126,6 @@ function downloadPDF() {
   html2pdf().set(opt).from(element).save();
 }
 </script>
-
 
 </body>
 </html>
