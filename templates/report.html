@@ -100,6 +100,25 @@
   <h4>Pay by scanning QR code</h4>
   <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=9916207115@ybl&pn=TaxPayment&am=500&cu=INR" alt="Pay ₹500">
 </div>
+<div style="text-align:center; margin-top:20px;">
+  <button onclick="window.print()">🖨 Print</button>
+  <button onclick="downloadPDF()">⬇ Download PDF</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+<script>
+function downloadPDF() {
+  const element = document.body;
+  const opt = {
+    margin:       0.5,
+    filename:     'Form16_Report.pdf',
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2, useCORS: true },   // <-- useCORS ensures QR loads
+    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+  };
+  html2pdf().set(opt).from(element).save();
+}
+</script>
 
 </body>
 </html>
