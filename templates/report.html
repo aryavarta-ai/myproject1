@@ -97,10 +97,11 @@
 </div>
 
 <div class="qr">
-  <h4>Pay by scanning QR code</h4>
-  <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=9916207115@ybl&pn=TaxPayment&am=500&cu=INR" alt="Pay ₹500">
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=9591362525@upi&pn=TaxPayment&am=500&cu=INR"
+       alt="Pay ₹500" style="width:120px;height:120px;display:block;" crossorigin="anonymous">
 </div>
-<div style="text-align:center; margin-top:20px;">
+
+<div style="text-align:center; margin-top:40px;">
   <button onclick="window.print()">🖨 Print</button>
   <button onclick="downloadPDF()">⬇ Download PDF</button>
 </div>
@@ -113,12 +114,13 @@ function downloadPDF() {
     margin:       0.5,
     filename:     'Form16_Report.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true },   // <-- useCORS ensures QR loads
+    html2canvas:  { scale: 2, useCORS: true },
     jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
   };
   html2pdf().set(opt).from(element).save();
 }
 </script>
+
 
 </body>
 </html>
